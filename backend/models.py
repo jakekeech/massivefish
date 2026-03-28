@@ -7,6 +7,7 @@ import uuid
 class Platform(str, Enum):
     LINKEDIN = "linkedin"
     INDEED = "indeed"
+    CUSTOM = "custom"
     WELLFOUND = "wellfound"
     YC_WAAS = "yc_waas"
     GREENHOUSE = "greenhouse"
@@ -57,6 +58,7 @@ class HuntRequest(BaseModel):
     role: str
     location: str
     keywords: list[str] = []
+    target_urls: list[str] = []
 
 
 class HuntResult(BaseModel):

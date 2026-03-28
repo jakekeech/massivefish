@@ -1,5 +1,10 @@
-from models import UserProfile, Job, HuntResult
 from typing import Optional
+
+from logging_utils import format_fields, get_logger
+from models import HuntResult, Job, UserProfile
+
+
+logger = get_logger("jobswarm.state")
 
 # In-memory state
 _profile: Optional[UserProfile] = None
@@ -10,9 +15,14 @@ _jobs: dict[str, Job] = {}
 def set_profile(profile: UserProfile) -> None:
     global _profile
     _profile = profile
+    logger.info(
+        "In-memory profile updated %s",
+        format_fields(email=profile.email, skills_count=len(profile.skills)),
+    )
 
 
 def get_profile() -> Optional[UserProfile]:
+    logger.info("In-memory profile requested %s", format_fields(profile_present=_profile is not None))
     return _profile
 
 
@@ -21,13 +31,30 @@ def save_hunt(hunt: HuntResult) -> None:
     for job in hunt.jobs:
         _jobs[job.id] = job
 
+    logger.info(
+        "Hunt stored in memory %s",
+        format_fields(hunt_id=hunt.hunt_id, jobs_count=len(hunt.jobs)),
+    )
+
 
 def get_hunt(hunt_id: str) -> Optional[HuntResult]:
-    return _hunts.get(hunt_id)
+    hunt = _hunts.get(hunt_id)
+    logger.info(
+        "Hunt lookup performed %s",
+        format_fields(hunt_id=hunt_id, found=hunt is not None),
+    )
+    return hunt
 
 
 def get_jobs_for_hunt(hunt_id: str) -> list[Job]:
     hunt = _hunts.get(hunt_id)
     if not hunt:
+        logger.warning("Jobs requested for missing hunt %s", format_fields(hunt_id=hunt_id))
         return []
-    return [j for j in hunt.jobs if not j.is_duplicate]
+
+    jobs = [job for job in hunt.jobs if not job.is_duplicate]
+    logger.info(
+        "Returning in-memory jobs %s",
+        format_fields(hunt_id=hunt_id, jobs_count=len(jobs)),
+    )
+    return jobs

@@ -1,28 +1,42 @@
 import { useState } from 'react'
-import { Search, MapPin, Tag, X, Plus } from 'lucide-react'
+import { Globe, MapPin, Plus, Search, Tag, X } from 'lucide-react'
 
 export default function SearchConfig({ config, setConfig }) {
   const [keywordInput, setKeywordInput] = useState('')
+  const [urlInput, setUrlInput] = useState('')
 
-  const handleChange = (field) => (e) => {
-    setConfig({ ...config, [field]: e.target.value })
+  const handleChange = (field) => (event) => {
+    setConfig({ ...config, [field]: event.target.value })
   }
 
   const addKeyword = () => {
-    if (keywordInput.trim() && !config.keywords.includes(keywordInput.trim())) {
-      setConfig({ ...config, keywords: [...config.keywords, keywordInput.trim()] })
+    const value = keywordInput.trim()
+    if (value && !config.keywords.includes(value)) {
+      setConfig({ ...config, keywords: [...config.keywords, value] })
       setKeywordInput('')
     }
   }
 
   const removeKeyword = (keyword) => {
-    setConfig({ ...config, keywords: config.keywords.filter(k => k !== keyword) })
+    setConfig({ ...config, keywords: config.keywords.filter((item) => item !== keyword) })
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addKeyword()
+  const addUrl = () => {
+    const value = urlInput.trim()
+    if (value && !config.target_urls.includes(value)) {
+      setConfig({ ...config, target_urls: [...config.target_urls, value] })
+      setUrlInput('')
+    }
+  }
+
+  const removeUrl = (url) => {
+    setConfig({ ...config, target_urls: config.target_urls.filter((item) => item !== url) })
+  }
+
+  const handleKeyDown = (event, onAdd) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      onAdd()
     }
   }
 
@@ -49,11 +63,6 @@ export default function SearchConfig({ config, setConfig }) {
             className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
             placeholder="Role / Title *"
           />
-          {config.role && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#22c55e] font-mono">
-              Required
-            </span>
-          )}
         </div>
 
         <div className="relative">
@@ -73,8 +82,8 @@ export default function SearchConfig({ config, setConfig }) {
             <input
               type="text"
               value={keywordInput}
-              onChange={(e) => setKeywordInput(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={(event) => setKeywordInput(event.target.value)}
+              onKeyDown={(event) => handleKeyDown(event, addKeyword)}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-20 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
               placeholder="Add keywords (Python, AI, React...)"
             />
@@ -90,14 +99,61 @@ export default function SearchConfig({ config, setConfig }) {
 
           {config.keywords.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
-              {config.keywords.map(kw => (
+              {config.keywords.map((keyword) => (
                 <span
-                  key={kw}
+                  key={keyword}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-sm text-[#22c55e]"
                 >
-                  {kw}
+                  {keyword}
                   <button
-                    onClick={() => removeKeyword(kw)}
+                    onClick={() => removeKeyword(keyword)}
+                    className="hover:text-red-400 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="relative">
+            <InputIcon icon={Globe} />
+            <input
+              type="text"
+              value={urlInput}
+              onChange={(event) => setUrlInput(event.target.value)}
+              onKeyDown={(event) => handleKeyDown(event, addUrl)}
+              className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-20 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+              placeholder="Optional target URL (debug default is linkedin.com)"
+            />
+            <button
+              onClick={addUrl}
+              disabled={!urlInput.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-[#27272a] hover:bg-[#3f3f46] disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm flex items-center gap-1 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              Add
+            </button>
+          </div>
+
+          {config.target_urls.length === 0 && (
+            <p className="text-xs text-[#71717a] mt-2">
+              No URLs added. The hunt will start from LinkedIn by default.
+            </p>
+          )}
+
+          {config.target_urls.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {config.target_urls.map((url) => (
+                <span
+                  key={url}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-full text-sm text-[#93c5fd]"
+                >
+                  {url}
+                  <button
+                    onClick={() => removeUrl(url)}
                     className="hover:text-red-400 transition-colors"
                   >
                     <X className="w-3 h-3" />

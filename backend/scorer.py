@@ -1,8 +1,13 @@
 import json
 import os
+
 from openai import OpenAI
+
+from logging_utils import format_fields, get_logger
 from models import Job, UserProfile
 
+
+logger = get_logger("jobswarm.scorer")
 
 SCORER_SYSTEM_PROMPT = """You are a job matching engine. Given a candidate profile and job listings, score each listing's relevance from 0-100 and provide 1-3 short match reasons.
 
@@ -58,11 +63,26 @@ def score_jobs(
     role: str,
     location: str,
     keywords: list[str],
+    hunt_id: str | None = None,
 ) -> list[Job]:
     """Score and deduplicate jobs using GPT-4o-mini."""
     if not jobs:
+        logger.info("Skipping scoring because there are no jobs %s", format_fields(hunt_id=hunt_id))
         return []
 
+    api_key_present = bool(os.getenv("OPENAI_API_KEY"))
+    logger.info(
+        "Scoring started %s",
+        format_fields(
+            hunt_id=hunt_id,
+            jobs_count=len(jobs),
+            role=role,
+            location=location,
+            keywords=keywords,
+            profile_present=profile is not None,
+            openai_api_key_present=api_key_present,
+        ),
+    )
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = build_scorer_prompt(profile, role, location, keywords, jobs)
@@ -77,11 +97,22 @@ def score_jobs(
             temperature=0.3,
             response_format={"type": "json_object"},
         )
+        logger.info(
+            "Scoring response received %s",
+            format_fields(
+                hunt_id=hunt_id,
+                choices=len(response.choices),
+                model=getattr(response, "model", None),
+            ),
+        )
 
         result = json.loads(response.choices[0].message.content)
         scored_data = {item["id"]: item for item in result.get("scored_jobs", [])}
+        logger.info(
+            "Parsed scoring payload %s",
+            format_fields(hunt_id=hunt_id, scored_items=len(scored_data)),
+        )
 
-        # Apply scores to jobs
         for job in jobs:
             if job.id in scored_data:
                 data = scored_data[job.id]
@@ -89,16 +120,29 @@ def score_jobs(
                 job.match_reasons = data.get("match_reasons", [])
                 job.is_duplicate = data.get("is_duplicate", False)
 
-        # Sort by relevance score descending
-        jobs.sort(key=lambda j: j.relevance_score, reverse=True)
-
-    except Exception as e:
-        print(f"Scoring failed: {e}")
-        # Return jobs unsorted with score 0 on failure
+        jobs.sort(key=lambda job: job.relevance_score, reverse=True)
+        logger.info(
+            "Scoring finished successfully %s",
+            format_fields(
+                hunt_id=hunt_id,
+                top_score=jobs[0].relevance_score if jobs else None,
+                duplicates=sum(1 for job in jobs if job.is_duplicate),
+            ),
+        )
+    except Exception as exc:
+        logger.exception(
+            "Scoring failed %s",
+            format_fields(hunt_id=hunt_id, error=str(exc)),
+        )
 
     return jobs
 
 
 def filter_duplicates(jobs: list[Job]) -> list[Job]:
     """Remove duplicate jobs from the list."""
-    return [j for j in jobs if not j.is_duplicate]
+    unique_jobs = [job for job in jobs if not job.is_duplicate]
+    logger.info(
+        "Filtered duplicate jobs %s",
+        format_fields(total_jobs=len(jobs), unique_jobs=len(unique_jobs)),
+    )
+    return unique_jobs

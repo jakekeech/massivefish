@@ -1,22 +1,56 @@
-import { Check, X, Loader2, Radio } from 'lucide-react'
+import { Check, Loader2, Radio, X } from 'lucide-react'
 
-const PLATFORMS = [
-  { id: 'linkedin', name: 'LinkedIn', color: '#0a66c2' },
-  { id: 'indeed', name: 'Indeed', color: '#2164f3' },
-  { id: 'wellfound', name: 'Wellfound', color: '#000000' },
-  { id: 'yc_waas', name: 'YC Startups', color: '#f26522' },
-  { id: 'greenhouse', name: 'Greenhouse', color: '#3ab549' },
-  { id: 'lever', name: 'Lever', color: '#1da1b4' },
+const DEFAULT_LANES = [
+  { id: 'linkedin_0', name: 'LinkedIn', color: '#0a66c2' },
 ]
 
-export default function SwarmStatusBar({ statuses, totalJobs }) {
-  const completedCount = Object.values(statuses).filter(s => s.status === 'completed').length
-  const failedCount = Object.values(statuses).filter(s => s.status === 'failed').length
-  const runningCount = Object.values(statuses).filter(s => s.status === 'running').length
+function laneNameFromUrl(url, index) {
+  try {
+    const { hostname } = new URL(url.startsWith('http') ? url : `https://${url}`)
+    return hostname.replace('www.', '') || `Target ${index + 1}`
+  } catch {
+    return `Target ${index + 1}`
+  }
+}
+
+function laneIdFromUrl(url, index) {
+  try {
+    const { hostname } = new URL(url.startsWith('http') ? url : `https://${url}`)
+    if (hostname.includes('linkedin.com')) return `linkedin_${index}`
+    if (hostname.includes('indeed.com')) return `indeed_${index}`
+  } catch {
+    return `custom_${index}`
+  }
+  return `custom_${index}`
+}
+
+export default function SwarmStatusBar({ statuses, totalJobs, targetUrls = [] }) {
+  const completedCount = Object.values(statuses).filter((status) => status.status === 'completed').length
+  const runningCount = Object.values(statuses).filter((status) => status.status === 'running').length
+
+  const configuredLanes = targetUrls.length > 0
+    ? targetUrls.map((url, index) => ({
+      id: laneIdFromUrl(url, index),
+      name: laneNameFromUrl(url, index),
+      color: '#3b82f6',
+    }))
+    : DEFAULT_LANES
+
+  const dynamicLanes = Object.entries(statuses).map(([id, status]) => ({
+    id,
+    name: status.label || id,
+    color: '#3b82f6',
+  }))
+
+  const seen = new Set()
+  const lanes = [...configuredLanes, ...dynamicLanes].filter((lane) => {
+    if (seen.has(lane.id)) return false
+    seen.add(lane.id)
+    return true
+  })
 
   return (
     <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-6 overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -33,14 +67,13 @@ export default function SwarmStatusBar({ statuses, totalJobs }) {
           <span className="text-[#a1a1aa]">
             <span className="text-white font-bold">{totalJobs}</span> jobs found
           </span>
-          <span className="text-[#22c55e]">{completedCount}/6</span>
+          <span className="text-[#22c55e]">{completedCount}/{lanes.length}</span>
         </div>
       </div>
 
-      {/* Agent Lanes */}
       <div className="space-y-3">
-        {PLATFORMS.map((platform, index) => {
-          const status = statuses[platform.id] || { status: 'queued', jobs: 0 }
+        {lanes.map((lane, index) => {
+          const status = statuses[lane.id] || { status: 'queued', jobs: 0, label: lane.name }
           const isCompleted = status.status === 'completed'
           const isFailed = status.status === 'failed'
           const isRunning = status.status === 'running'
@@ -48,16 +81,14 @@ export default function SwarmStatusBar({ statuses, totalJobs }) {
 
           return (
             <div
-              key={platform.id}
+              key={lane.id}
               className="flex items-center gap-4"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              {/* Platform Name */}
               <span className="w-28 text-sm text-[#a1a1aa] font-mono truncate">
-                {platform.name}
+                {status.label || lane.name}
               </span>
 
-              {/* Progress Bar */}
               <div className="flex-1 h-2.5 bg-[#27272a] rounded-full overflow-hidden relative">
                 <div
                   className={`h-full transition-all duration-700 ease-out rounded-full ${
@@ -68,18 +99,17 @@ export default function SwarmStatusBar({ statuses, totalJobs }) {
                   }`}
                   style={{
                     width: isCompleted ? '100%' :
-                           isFailed ? '100%' :
-                           isRunning ? '65%' :
-                           '15%'
+                      isFailed ? '100%' :
+                        isRunning ? '65%' :
+                          '15%',
+                    backgroundColor: isCompleted || isFailed || isRunning ? undefined : lane.color,
                   }}
                 />
-                {/* Glow effect for completed */}
                 {isCompleted && (
                   <div className="absolute inset-0 bg-[#22c55e]/20 blur-sm" />
                 )}
               </div>
 
-              {/* Status */}
               <div className="w-24 flex items-center justify-end gap-2 text-sm font-mono">
                 {isCompleted && (
                   <span className="text-[#22c55e] flex items-center gap-1.5">
@@ -103,7 +133,6 @@ export default function SwarmStatusBar({ statuses, totalJobs }) {
                 )}
               </div>
 
-              {/* Time */}
               <span className="w-14 text-right text-xs text-[#52525b] font-mono">
                 {status.elapsed ? `${status.elapsed}s` : '—'}
               </span>
