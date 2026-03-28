@@ -29,9 +29,6 @@ export default function HuntButton({ onClick, disabled, loading }) {
         <>
           <Zap className="w-5 h-5" />
           <span>Launch InternShip</span>
-          <span className="text-black/50 text-sm font-normal ml-1">
-            (6 waters)
-          </span>
         </>
       )}
     </button>

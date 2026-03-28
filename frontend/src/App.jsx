@@ -18,7 +18,7 @@ export default function App() {
     role: '',
     location: '',
     keywords: [],
-    target_urls: ['https://www.linkedin.com'],
+    target_urls: [],
   })
 
   const handleStartHunt = (newHuntId) => {

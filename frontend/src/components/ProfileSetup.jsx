@@ -73,7 +73,9 @@ export default function ProfileSetup({
 
       <div className="flex justify-center gap-6 pt-4">
         <div className="text-xs text-[#22c55e] font-mono uppercase tracking-wider">
-          LinkedIn
+          {searchConfig.target_urls.length > 0
+            ? `${searchConfig.target_urls.length} Target${searchConfig.target_urls.length === 1 ? '' : 's'} Configured`
+            : 'Default Target: LinkedIn'}
         </div>
       </div>
     </div>

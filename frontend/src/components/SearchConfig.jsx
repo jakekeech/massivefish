@@ -5,6 +5,15 @@ export default function SearchConfig({ config, setConfig }) {
   const [keywordInput, setKeywordInput] = useState('')
   const [urlInput, setUrlInput] = useState('')
 
+  const normalizeUrl = (value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed
+    }
+    return `https://${trimmed}`
+  }
+
   const handleChange = (field) => (event) => {
     setConfig({ ...config, [field]: event.target.value })
   }
@@ -22,7 +31,7 @@ export default function SearchConfig({ config, setConfig }) {
   }
 
   const addUrl = () => {
-    const value = urlInput.trim()
+    const value = normalizeUrl(urlInput)
     if (value && !config.target_urls.includes(value)) {
       setConfig({ ...config, target_urls: [...config.target_urls, value] })
       setUrlInput('')
@@ -126,7 +135,7 @@ export default function SearchConfig({ config, setConfig }) {
               onChange={(event) => setUrlInput(event.target.value)}
               onKeyDown={(event) => handleKeyDown(event, addUrl)}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-20 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
-              placeholder="Optional target URL"
+              placeholder="Optional target URL (leave blank to use LinkedIn)"
             />
             <button
               onClick={addUrl}
@@ -140,7 +149,7 @@ export default function SearchConfig({ config, setConfig }) {
 
           {config.target_urls.length === 0 && (
             <p className="text-xs text-[#71717a] mt-2">
-              No URLs added. InternShip will use the default target source.
+              No URLs added. InternShip will fall back to LinkedIn. Add a URL here to override that default.
             </p>
           )}
 

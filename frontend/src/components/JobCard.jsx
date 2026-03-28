@@ -6,7 +6,18 @@ function getScoreColor(score) {
   return { text: 'text-[#71717a]', bg: 'bg-[#71717a]/10', border: 'border-[#71717a]/30' }
 }
 
-function getPlatformLabel(platform) {
+function getCustomPlatformLabel(jobUrl) {
+  if (!jobUrl) return 'Custom'
+
+  try {
+    const { hostname } = new URL(jobUrl)
+    return hostname.replace('www.', '') || 'Custom'
+  } catch {
+    return 'Custom'
+  }
+}
+
+function getPlatformLabel(platform, jobUrl) {
   const labels = {
     linkedin: 'LinkedIn',
     indeed: 'Indeed',
@@ -14,6 +25,9 @@ function getPlatformLabel(platform) {
     yc_waas: 'YC',
     greenhouse: 'Greenhouse',
     lever: 'Lever',
+  }
+  if (platform === 'custom') {
+    return getCustomPlatformLabel(jobUrl)
   }
   return labels[platform] || platform
 }
@@ -83,7 +97,7 @@ export default function JobCard({ job, index }) {
             border: `1px solid ${getPlatformColor(job.source_platform)}30`,
           }}
         >
-          {getPlatformLabel(job.source_platform)}
+          {getPlatformLabel(job.source_platform, job.job_url)}
         </span>
         {job.employment_type && (
           <span className="text-xs px-2 py-0.5 rounded bg-[#27272a] text-[#a1a1aa] flex items-center gap-1">

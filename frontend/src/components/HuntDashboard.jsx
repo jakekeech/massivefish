@@ -53,6 +53,26 @@ function consumeEventBlocks(buffer, onEventBlock) {
   return workingBuffer
 }
 
+function previewNameFromUrl(url, index) {
+  try {
+    const { hostname } = new URL(url.startsWith('http') ? url : `https://${url}`)
+    return hostname.replace('www.', '') || `Target ${index + 1}`
+  } catch {
+    return `Target ${index + 1}`
+  }
+}
+
+function previewIdFromUrl(url, index) {
+  try {
+    const { hostname } = new URL(url.startsWith('http') ? url : `https://${url}`)
+    if (hostname.includes('linkedin.com')) return `linkedin_${index}`
+    if (hostname.includes('indeed.com')) return `indeed_${index}`
+  } catch {
+    return `custom_${index}`
+  }
+  return `custom_${index}`
+}
+
 export default function HuntDashboard({ huntId, searchConfig }) {
   const [statuses, setStatuses] = useState({})
   const [jobs, setJobs] = useState([])
@@ -62,8 +82,8 @@ export default function HuntDashboard({ huntId, searchConfig }) {
   const [error, setError] = useState(null)
   const [phase, setPhase] = useState('Booting')
   const [statusMessage, setStatusMessage] = useState('Preparing the InternShip voyage...')
-  const [linkedinPreviewUrl, setLinkedinPreviewUrl] = useState(null)
-  const [linkedinPreviewMessage, setLinkedinPreviewMessage] = useState('Waiting for a TinyFish to surface a streaming URL...')
+  const [previewFeeds, setPreviewFeeds] = useState({})
+  const [selectedPreviewId, setSelectedPreviewId] = useState(null)
   const startedRef = useRef(false)
 
   useEffect(() => {
@@ -135,6 +155,14 @@ export default function HuntDashboard({ huntId, searchConfig }) {
         ...previous,
         [data.platform]: { status: 'queued', jobs: 0, label: data.label || data.platform },
       }))
+      setPreviewFeeds((previous) => ({
+        ...previous,
+        [data.platform]: {
+          ...previous[data.platform],
+          label: data.label || previous[data.platform]?.label || data.platform,
+          message: previous[data.platform]?.message || `Waiting for ${data.label || 'this TinyFish'} to surface a streaming URL...`,
+        },
+      }))
       return
     }
 
@@ -150,19 +178,43 @@ export default function HuntDashboard({ huntId, searchConfig }) {
           jobs: previous[data.platform]?.jobs || 0,
         },
       }))
+      setPreviewFeeds((previous) => ({
+        ...previous,
+        [data.platform]: {
+          ...previous[data.platform],
+          label: data.label || previous[data.platform]?.label || data.platform,
+          message: previous[data.platform]?.url
+            ? previous[data.platform].message
+            : `Waiting for ${data.label || 'this TinyFish'} to surface a streaming URL...`,
+        },
+      }))
       return
     }
 
-    if (eventName === 'agent_preview' && data.platform?.startsWith('linkedin_')) {
+    if (eventName === 'agent_preview' && data.platform) {
       if (data.streaming_url) {
-        setLinkedinPreviewUrl(data.streaming_url)
-        setLinkedinPreviewMessage('TinyFish preview connected.')
+        setPreviewFeeds((previous) => ({
+          ...previous,
+          [data.platform]: {
+            ...previous[data.platform],
+            label: data.label || previous[data.platform]?.label || data.platform,
+            url: data.streaming_url,
+            message: `${data.label || 'This TinyFish'} preview connected.`,
+          },
+        }))
       }
       return
     }
 
-    if (eventName === 'agent_preview_missing' && data.platform?.startsWith('linkedin_')) {
-      setLinkedinPreviewMessage(data.message || 'This TinyFish did not emit a streaming URL.')
+    if (eventName === 'agent_preview_missing' && data.platform) {
+      setPreviewFeeds((previous) => ({
+        ...previous,
+        [data.platform]: {
+          ...previous[data.platform],
+          label: data.label || previous[data.platform]?.label || data.platform,
+          message: data.message || `${data.label || 'This TinyFish'} did not emit a streaming URL.`,
+        },
+      }))
       return
     }
 
@@ -175,6 +227,16 @@ export default function HuntDashboard({ huntId, searchConfig }) {
           status: 'completed',
           jobs: data.jobs_found,
           elapsed: data.elapsed,
+        },
+      }))
+      setPreviewFeeds((previous) => ({
+        ...previous,
+        [data.platform]: {
+          ...previous[data.platform],
+          label: data.label || previous[data.platform]?.label || data.platform,
+          message: previous[data.platform]?.url
+            ? previous[data.platform].message
+            : `${data.label || 'This TinyFish'} completed without exposing a live stream.`,
         },
       }))
       return
@@ -191,6 +253,14 @@ export default function HuntDashboard({ huntId, searchConfig }) {
           jobs: 0,
           elapsed: data.elapsed,
           error: data.error,
+        },
+      }))
+      setPreviewFeeds((previous) => ({
+        ...previous,
+        [data.platform]: {
+          ...previous[data.platform],
+          label: data.label || previous[data.platform]?.label || data.platform,
+          message: data.error || `${data.label || 'This TinyFish'} drifted off course.`,
         },
       }))
       setError(data.error || 'TinyFish scraping failed')
@@ -245,6 +315,42 @@ export default function HuntDashboard({ huntId, searchConfig }) {
   const avgScore = jobs.length > 0
     ? Math.round(jobs.reduce((sum, job) => sum + job.relevance_score, 0) / jobs.length)
     : 0
+  const configuredPreviewTargets = (searchConfig.target_urls.length > 0
+    ? searchConfig.target_urls
+    : ['https://www.linkedin.com']
+  ).map((url, index) => ({
+    id: previewIdFromUrl(url, index),
+    label: previewNameFromUrl(url, index),
+  }))
+  const dynamicPreviewTargets = Object.entries(statuses).map(([id, status]) => ({
+    id,
+    label: status.label || id,
+  }))
+  const seenPreviewTargets = new Set()
+  const previewTargets = [...configuredPreviewTargets, ...dynamicPreviewTargets].filter((target) => {
+    if (seenPreviewTargets.has(target.id)) return false
+    seenPreviewTargets.add(target.id)
+    return true
+  })
+  const connectedPreviewCount = previewTargets.filter((target) => previewFeeds[target.id]?.url).length
+  const selectedPreviewTarget = previewTargets.find((target) => target.id === selectedPreviewId) || previewTargets[0] || null
+  const selectedPreviewFeed = selectedPreviewTarget ? previewFeeds[selectedPreviewTarget.id] : null
+
+  useEffect(() => {
+    if (previewTargets.length === 0) {
+      if (selectedPreviewId !== null) {
+        setSelectedPreviewId(null)
+      }
+      return
+    }
+
+    if (selectedPreviewId && previewTargets.some((target) => target.id === selectedPreviewId)) {
+      return
+    }
+
+    const firstConnectedTarget = previewTargets.find((target) => previewFeeds[target.id]?.url)
+    setSelectedPreviewId(firstConnectedTarget?.id || previewTargets[0].id)
+  }, [previewTargets, previewFeeds, selectedPreviewId])
 
   return (
     <div className="space-y-6">
@@ -277,16 +383,49 @@ export default function HuntDashboard({ huntId, searchConfig }) {
           </div>
           <div className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-[#0f172a] border border-[#1e293b] text-sm font-mono text-[#93c5fd]">
             <Activity className="w-4 h-4" />
-            {linkedinPreviewUrl ? 'TinyFish view connected' : 'Waiting for a TinyFish view'}
+            {connectedPreviewCount > 0
+              ? `${connectedPreviewCount}/${previewTargets.length} TinyFish views connected`
+              : 'Waiting for TinyFish views'}
           </div>
         </div>
       </section>
 
-      <LivePreview
-        title="TinyFish Live Preview"
-        url={linkedinPreviewUrl}
-        message={linkedinPreviewMessage}
-      />
+      {selectedPreviewTarget && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            {previewTargets.map((target) => {
+              const isActive = target.id === selectedPreviewTarget.id
+              const hasLiveView = Boolean(previewFeeds[target.id]?.url)
+
+              return (
+                <button
+                  key={target.id}
+                  type="button"
+                  onClick={() => setSelectedPreviewId(target.id)}
+                  className={`px-4 py-2 rounded-xl border text-sm font-mono transition-colors ${
+                    isActive
+                      ? 'bg-[#0f172a] border-[#3b82f6] text-[#93c5fd]'
+                      : 'bg-[#18181b] border-[#27272a] text-[#a1a1aa] hover:text-white hover:border-[#3f3f46]'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full ${hasLiveView ? 'bg-[#22c55e]' : 'bg-[#52525b]'}`}
+                    />
+                    {previewFeeds[target.id]?.label || target.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <LivePreview
+            title={`${selectedPreviewFeed?.label || selectedPreviewTarget.label} Live Preview`}
+            url={selectedPreviewFeed?.url}
+            message={selectedPreviewFeed?.message || `Waiting for ${selectedPreviewFeed?.label || selectedPreviewTarget.label} to surface a streaming URL...`}
+          />
+        </section>
+      )}
 
       <SwarmStatusBar
         statuses={statuses}
