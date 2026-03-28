@@ -6,13 +6,13 @@ export default function LivePreview({ title, url, message }) {
           {title}
         </h3>
         <p className="text-xs text-[#71717a] mt-1">
-          TinyFish live browser preview
+          Live view from the TinyFish school
         </p>
       </div>
 
       {!url ? (
         <div className="px-4 py-8 text-sm text-[#6b7280] font-mono">
-          {message || 'Waiting for TinyFish to publish a streaming URL...'}
+          {message || 'Waiting for a TinyFish to surface a streaming URL...'}
         </div>
       ) : (
         <div className="aspect-video bg-[#09090b]">

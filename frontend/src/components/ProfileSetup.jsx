@@ -46,13 +46,13 @@ export default function ProfileSetup({
       <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-sm text-[#22c55e] font-mono mb-4">
           <Terminal className="w-4 h-4" />
-          <span>TinyFish Powered</span>
+          <span>TinyFish Hatchery</span>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-3">
-          Deploy Your <span className="text-gradient">Job Hunt Swarm</span>
+        <h1 className="text-4xl md:text-5xl font-bold font-display tracking-tight mb-3">
+          Set Sail with <span className="text-gradient">InternShip</span>
         </h1>
         <p className="text-[#a1a1aa] text-lg max-w-xl mx-auto">
-          LinkedIn-only debug mode is enabled so we can verify the full TinyFish workflow
+          Release a school of TinyFish to scout internships and early-career roles tailored to your profile
           <span className="text-white font-medium"> end to end</span>
         </p>
       </div>

@@ -7,7 +7,7 @@ export default function DebugConsole({ entries, phase }) {
             Workflow Console
           </h3>
           <p className="text-xs text-[#6b7280] mt-1">
-            Live client-side trace of the hunt lifecycle
+            Live client-side trace of the InternShip voyage
           </p>
         </div>
         <span className="px-2 py-1 rounded-full bg-[#1e3a8a]/40 text-[#93c5fd] text-xs font-mono uppercase">
@@ -18,7 +18,7 @@ export default function DebugConsole({ entries, phase }) {
       <div className="max-h-72 overflow-y-auto">
         {entries.length === 0 ? (
           <div className="px-4 py-6 text-sm text-[#6b7280] font-mono">
-            Waiting for workflow events...
+            Waiting for TinyFish signals...
           </div>
         ) : (
           entries.map((entry, index) => (

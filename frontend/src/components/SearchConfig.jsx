@@ -126,7 +126,7 @@ export default function SearchConfig({ config, setConfig }) {
               onChange={(event) => setUrlInput(event.target.value)}
               onKeyDown={(event) => handleKeyDown(event, addUrl)}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-20 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
-              placeholder="Optional target URL (debug default is linkedin.com)"
+              placeholder="Optional target URL"
             />
             <button
               onClick={addUrl}
@@ -140,7 +140,7 @@ export default function SearchConfig({ config, setConfig }) {
 
           {config.target_urls.length === 0 && (
             <p className="text-xs text-[#71717a] mt-2">
-              No URLs added. The hunt will start from LinkedIn by default.
+              No URLs added. InternShip will use the default target source.
             </p>
           )}
 

@@ -61,9 +61,9 @@ export default function HuntDashboard({ huntId, searchConfig }) {
   const [complete, setComplete] = useState(false)
   const [error, setError] = useState(null)
   const [phase, setPhase] = useState('Booting')
-  const [statusMessage, setStatusMessage] = useState('Preparing LinkedIn hunt...')
+  const [statusMessage, setStatusMessage] = useState('Preparing the InternShip voyage...')
   const [linkedinPreviewUrl, setLinkedinPreviewUrl] = useState(null)
-  const [linkedinPreviewMessage, setLinkedinPreviewMessage] = useState('Waiting for TinyFish to publish a streaming URL...')
+  const [linkedinPreviewMessage, setLinkedinPreviewMessage] = useState('Waiting for a TinyFish to surface a streaming URL...')
   const startedRef = useRef(false)
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function HuntDashboard({ huntId, searchConfig }) {
 
   const startHunt = async () => {
     setPhase('Starting')
-    setStatusMessage('Opening the LinkedIn automation stream...')
+    setStatusMessage('Opening the TinyFish automation stream...')
     setError(null)
 
     try {
@@ -123,14 +123,14 @@ export default function HuntDashboard({ huntId, searchConfig }) {
     } catch (err) {
       setPhase('Error')
       setError(err.message)
-      setStatusMessage('The LinkedIn hunt failed before results could render.')
+      setStatusMessage('The InternShip voyage failed before results could render.')
     }
   }
 
   const handleEvent = (eventName, data) => {
     if (eventName === 'agent_started' && data.platform) {
       setPhase('Queued')
-      setStatusMessage(`${data.label || 'LinkedIn'} is queued and waiting to start.`)
+      setStatusMessage(`${data.label || 'This TinyFish'} is queued and ready to swim.`)
       setStatuses((previous) => ({
         ...previous,
         [data.platform]: { status: 'queued', jobs: 0, label: data.label || data.platform },
@@ -140,7 +140,7 @@ export default function HuntDashboard({ huntId, searchConfig }) {
 
     if (eventName === 'agent_running' && data.platform) {
       setPhase('Scraping')
-      setStatusMessage(`${data.label || 'LinkedIn'} is navigating the site and collecting listings.`)
+      setStatusMessage(`${data.label || 'This TinyFish'} is navigating the current and collecting listings.`)
       setStatuses((previous) => ({
         ...previous,
         [data.platform]: {
@@ -156,18 +156,18 @@ export default function HuntDashboard({ huntId, searchConfig }) {
     if (eventName === 'agent_preview' && data.platform?.startsWith('linkedin_')) {
       if (data.streaming_url) {
         setLinkedinPreviewUrl(data.streaming_url)
-        setLinkedinPreviewMessage('LinkedIn preview connected.')
+        setLinkedinPreviewMessage('TinyFish preview connected.')
       }
       return
     }
 
     if (eventName === 'agent_preview_missing' && data.platform?.startsWith('linkedin_')) {
-      setLinkedinPreviewMessage(data.message || 'TinyFish did not emit a streaming URL for LinkedIn.')
+      setLinkedinPreviewMessage(data.message || 'This TinyFish did not emit a streaming URL.')
       return
     }
 
     if (eventName === 'agent_complete' && data.platform) {
-      setStatusMessage(`${data.label || 'LinkedIn'} finished with ${data.jobs_found} jobs found.`)
+      setStatusMessage(`${data.label || 'This TinyFish'} surfaced ${data.jobs_found} roles.`)
       setStatuses((previous) => ({
         ...previous,
         [data.platform]: {
@@ -182,7 +182,7 @@ export default function HuntDashboard({ huntId, searchConfig }) {
 
     if (eventName === 'agent_failed' && data.platform) {
       setPhase('Error')
-      setStatusMessage(`${data.label || 'LinkedIn'} failed before results were returned.`)
+      setStatusMessage(`${data.label || 'This TinyFish'} drifted off course before results were returned.`)
       setStatuses((previous) => ({
         ...previous,
         [data.platform]: {
@@ -193,7 +193,7 @@ export default function HuntDashboard({ huntId, searchConfig }) {
           error: data.error,
         },
       }))
-      setError(data.error || 'LinkedIn scraping failed')
+      setError(data.error || 'TinyFish scraping failed')
       return
     }
 
@@ -209,7 +209,7 @@ export default function HuntDashboard({ huntId, searchConfig }) {
       setScoring(false)
       setComplete(true)
       setTotalScraped(data.total_scraped || 0)
-      setStatusMessage('LinkedIn hunt finished. Loading results...')
+      setStatusMessage('The InternShip voyage is complete. Loading results...')
       fetchJobs(data.hunt_id)
       return
     }
@@ -217,8 +217,8 @@ export default function HuntDashboard({ huntId, searchConfig }) {
     if (eventName === 'hunt_error') {
       setPhase('Error')
       setScoring(false)
-      setStatusMessage('The backend reported a hunt error.')
-      setError(data.error || 'Unknown hunt error')
+      setStatusMessage('The backend reported a voyage error.')
+      setError(data.error || 'Unknown voyage error')
     }
   }
 
@@ -233,11 +233,11 @@ export default function HuntDashboard({ huntId, searchConfig }) {
 
       setJobs(data.jobs || [])
       setPhase('Complete')
-      setStatusMessage(`Loaded ${data.jobs?.length || 0} LinkedIn results.`)
+      setStatusMessage(`Loaded ${data.jobs?.length || 0} results from the InternShip voyage.`)
     } catch (err) {
       setPhase('Error')
       setError(err.message || 'Failed to fetch jobs')
-      setStatusMessage('The hunt finished, but the frontend could not load the results.')
+      setStatusMessage('The voyage finished, but the frontend could not load the results.')
     }
   }
 
@@ -251,9 +251,9 @@ export default function HuntDashboard({ huntId, searchConfig }) {
       <div className="text-center mb-6">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-full text-sm text-[#3b82f6] font-mono mb-3">
           <Target className="w-4 h-4" />
-          <span>LinkedIn Hunt</span>
+          <span>InternShip Voyage</span>
         </div>
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-3xl font-bold font-display tracking-tight">
           <span className="text-gradient">{searchConfig.role}</span>
         </h1>
         <p className="text-[#a1a1aa] mt-1">{searchConfig.location}</p>
@@ -277,13 +277,13 @@ export default function HuntDashboard({ huntId, searchConfig }) {
           </div>
           <div className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-[#0f172a] border border-[#1e293b] text-sm font-mono text-[#93c5fd]">
             <Activity className="w-4 h-4" />
-            {linkedinPreviewUrl ? 'Live preview connected' : 'Waiting for live preview'}
+            {linkedinPreviewUrl ? 'TinyFish view connected' : 'Waiting for a TinyFish view'}
           </div>
         </div>
       </section>
 
       <LivePreview
-        title="LinkedIn Live Preview"
+        title="TinyFish Live Preview"
         url={linkedinPreviewUrl}
         message={linkedinPreviewMessage}
       />

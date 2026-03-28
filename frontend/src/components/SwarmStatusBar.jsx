@@ -59,8 +59,8 @@ export default function SwarmStatusBar({ statuses, totalJobs, targetUrls = [] })
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#22c55e] rounded-full animate-ping" />
             )}
           </div>
-          <h2 className="text-lg font-bold font-mono">
-            SWARM <span className="text-[#22c55e]">DEPLOYED</span>
+          <h2 className="text-lg font-bold font-display tracking-tight">
+            TINYFISH <span className="text-[#22c55e]">RELEASED</span>
           </h2>
         </div>
         <div className="flex items-center gap-4 text-sm font-mono">

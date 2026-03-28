@@ -20,7 +20,7 @@ export default function JobFeed({ jobs, loading }) {
       <div className="text-center py-16">
         <SearchX className="w-12 h-12 text-[#3f3f46] mx-auto mb-4" />
         <p className="text-[#71717a] font-mono">
-          No jobs found yet. The swarm is still hunting...
+          No roles surfaced yet. Your TinyFish are still scouting...
         </p>
       </div>
     )

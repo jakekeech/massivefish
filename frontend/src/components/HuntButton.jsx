@@ -23,14 +23,14 @@ export default function HuntButton({ onClick, disabled, loading }) {
       {loading ? (
         <>
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Deploying Swarm...</span>
+          <span>Releasing TinyFish...</span>
         </>
       ) : (
         <>
           <Zap className="w-5 h-5" />
-          <span>Hunt Jobs</span>
+          <span>Launch InternShip</span>
           <span className="text-black/50 text-sm font-normal ml-1">
-            (6 platforms)
+            (6 waters)
           </span>
         </>
       )}
