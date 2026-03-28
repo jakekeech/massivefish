@@ -1,13 +1,14 @@
 from typing import Optional
 
 from logging_utils import format_fields, get_logger
-from models import HuntResult, Job, UserProfile
+from models import HuntResult, Job, StoredResume, UserProfile
 
 
 logger = get_logger("jobswarm.state")
 
 # In-memory state
 _profile: Optional[UserProfile] = None
+_resume: Optional[StoredResume] = None
 _hunts: dict[str, HuntResult] = {}
 _jobs: dict[str, Job] = {}
 
@@ -24,6 +25,24 @@ def set_profile(profile: UserProfile) -> None:
 def get_profile() -> Optional[UserProfile]:
     logger.info("In-memory profile requested %s", format_fields(profile_present=_profile is not None))
     return _profile
+
+
+def set_resume(resume: StoredResume) -> None:
+    global _resume
+    _resume = resume
+    logger.info(
+        "In-memory resume updated %s",
+        format_fields(
+            resume_id=resume.id,
+            filename=resume.filename,
+            size_bytes=resume.size_bytes,
+        ),
+    )
+
+
+def get_resume() -> Optional[StoredResume]:
+    logger.info("In-memory resume requested %s", format_fields(resume_present=_resume is not None))
+    return _resume
 
 
 def save_hunt(hunt: HuntResult) -> None:

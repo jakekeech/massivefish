@@ -4,10 +4,13 @@ import HuntButton from './HuntButton'
 import ProfileForm from './ProfileForm'
 import ResumeUploader from './ResumeUploader'
 import SearchConfig from './SearchConfig'
+import { DEFAULT_TARGETS_LABEL } from '../lib/defaultTargets'
 
 export default function ProfileSetup({
   profile,
   setProfile,
+  resume,
+  setResume,
   searchConfig,
   setSearchConfig,
   onStartHunt,
@@ -18,8 +21,23 @@ export default function ProfileSetup({
 
   const canHunt = searchConfig.role.trim() && searchConfig.location.trim()
 
-  const handleResumeParsed = (parsedData) => {
-    setProfile(parsedData)
+  const handleResumeParsed = ({ profile: parsedProfile, resume: parsedResume }) => {
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      ...parsedProfile,
+      first_name: parsedProfile.first_name || currentProfile.first_name,
+      last_name: parsedProfile.last_name || currentProfile.last_name,
+      email: parsedProfile.email || currentProfile.email,
+      phone: parsedProfile.phone || currentProfile.phone,
+      location: parsedProfile.location || currentProfile.location,
+      linkedin_url: parsedProfile.linkedin_url || currentProfile.linkedin_url,
+      github_url: parsedProfile.github_url || currentProfile.github_url,
+      current_title: parsedProfile.current_title || currentProfile.current_title,
+      years_of_experience: parsedProfile.years_of_experience || currentProfile.years_of_experience,
+      education: parsedProfile.education || currentProfile.education,
+      skills: parsedProfile.skills?.length ? parsedProfile.skills : currentProfile.skills,
+    }))
+    setResume(parsedResume || null)
     setResumeSuccess(true)
     // Clear success message after 3 seconds
     setTimeout(() => setResumeSuccess(false), 3000)
@@ -67,12 +85,16 @@ export default function ProfileSetup({
       </div>
 
       <div className="space-y-6">
-        <ResumeUploader onProfileParsed={handleResumeParsed} />
+        <ResumeUploader onResumeParsed={handleResumeParsed} />
 
         {resumeSuccess && (
           <div className="bg-[#22c55e]/10 border border-[#22c55e]/50 rounded-xl p-4 text-[#22c55e] flex items-center gap-3">
             <CheckCircle className="w-5 h-5 flex-shrink-0" />
-            <span>Resume parsed successfully! Review your profile below.</span>
+            <span>
+              {resume?.filename
+                ? `Resume parsed and stored: ${resume.filename}. Review your profile below.`
+                : 'Resume parsed successfully! Review your profile below.'}
+            </span>
           </div>
         )}
 
@@ -95,7 +117,7 @@ export default function ProfileSetup({
         <div className="text-xs text-[#22c55e] font-mono uppercase tracking-wider">
           {searchConfig.target_urls.length > 0
             ? `${searchConfig.target_urls.length} Target${searchConfig.target_urls.length === 1 ? '' : 's'} Configured`
-            : 'Default Target: LinkedIn'}
+            : `Default Swarm: ${DEFAULT_TARGETS_LABEL}`}
         </div>
       </div>
     </div>

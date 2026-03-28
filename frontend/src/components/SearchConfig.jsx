@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Globe, MapPin, Plus, Search, Tag, X } from 'lucide-react'
+import { DEFAULT_TARGETS_LABEL } from '../lib/defaultTargets'
 
 export default function SearchConfig({ config, setConfig }) {
   const [keywordInput, setKeywordInput] = useState('')
@@ -135,7 +136,7 @@ export default function SearchConfig({ config, setConfig }) {
               onChange={(event) => setUrlInput(event.target.value)}
               onKeyDown={(event) => handleKeyDown(event, addUrl)}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-20 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
-              placeholder="Optional target URL (leave blank to use LinkedIn)"
+              placeholder="Optional target URL (leave blank to use the default swarm)"
             />
             <button
               onClick={addUrl}
@@ -149,7 +150,13 @@ export default function SearchConfig({ config, setConfig }) {
 
           {config.target_urls.length === 0 && (
             <p className="text-xs text-[#71717a] mt-2">
-              No URLs added. InternShip will fall back to LinkedIn. Add a URL here to override that default.
+              No URLs added. InternShip will use the default TinyFish swarm. Add a URL here to override that default.
+            </p>
+          )}
+
+          {config.target_urls.length === 0 && (
+            <p className="text-xs text-[#52525b] mt-1">
+              Default swarm: {DEFAULT_TARGETS_LABEL}
             </p>
           )}
 

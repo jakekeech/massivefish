@@ -65,6 +65,7 @@ export default function ApplicationCopilot({ job, onClose }) {
   const [preview, setPreview] = useState(null)
   const [trace, setTrace] = useState([])
   const [inspection, setInspection] = useState(null)
+  const [resumeInfo, setResumeInfo] = useState(null)
   const [coverLetter, setCoverLetter] = useState('')
   const [coverLetterSource, setCoverLetterSource] = useState(null)
   const [fillResult, setFillResult] = useState(null)
@@ -104,6 +105,7 @@ export default function ApplicationCopilot({ job, onClose }) {
     setPreview(null)
     setTrace([])
     setInspection(null)
+    setResumeInfo(null)
     setCoverLetter('')
     setCoverLetterSource(null)
     setFillResult(null)
@@ -116,6 +118,7 @@ export default function ApplicationCopilot({ job, onClose }) {
       if (eventName === 'apply_started') {
         setPhase('Starting')
         setStatusMessage(`TinyFish is preparing an application run for ${data.company_name}.`)
+        setResumeInfo(data.resume || null)
         return
       }
 
@@ -355,8 +358,51 @@ export default function ApplicationCopilot({ job, onClose }) {
                     <p className="mt-3 text-sm text-[#d4d4d8]">
                       If the live preview accepts interaction, finish the login or blocker there, then hit <span className="font-semibold text-white">Retry Run</span>.
                     </p>
+                    {resumeInfo?.download_url && (
+                      <a
+                        href={resumeInfo.download_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 mt-4 px-4 py-2.5 rounded-xl bg-[#27272a] hover:bg-[#3f3f46] transition-colors text-sm font-medium text-white"
+                      >
+                        Download Stored Resume
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </div>
                 </div>
+              </section>
+            )}
+
+            {resumeInfo && (
+              <section className="bg-[#18181b] border border-[#27272a] rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#60a5fa]" />
+                  <h3 className="font-semibold text-lg">Resume On File</h3>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-4">
+                    <div className="text-[#71717a] font-mono uppercase tracking-wider text-xs mb-2">Filename</div>
+                    <div className="text-white break-all">{resumeInfo.filename}</div>
+                  </div>
+                  <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-4">
+                    <div className="text-[#71717a] font-mono uppercase tracking-wider text-xs mb-2">Stored</div>
+                    <div className="text-white">{resumeInfo.uploaded_at}</div>
+                  </div>
+                </div>
+
+                {resumeInfo.download_url && (
+                  <a
+                    href={resumeInfo.download_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#27272a] hover:bg-[#3f3f46] transition-colors text-sm font-medium"
+                  >
+                    Download Resume
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
               </section>
             )}
 
@@ -375,6 +421,14 @@ export default function ApplicationCopilot({ job, onClose }) {
                   <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-4">
                     <div className="text-[#71717a] font-mono uppercase tracking-wider text-xs mb-2">Status</div>
                     <div className="text-white">{formatStatusLabel(inspection.status)}</div>
+                  </div>
+                  <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-4">
+                    <div className="text-[#71717a] font-mono uppercase tracking-wider text-xs mb-2">Resume Requirement</div>
+                    <div className="text-white">{inspection.requires_resume_upload ? 'Resume required' : 'No resume required yet'}</div>
+                  </div>
+                  <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-4">
+                    <div className="text-[#71717a] font-mono uppercase tracking-wider text-xs mb-2">Stored Resume</div>
+                    <div className="text-white">{resumeInfo ? 'Available to the copilot' : 'Not on file'}</div>
                   </div>
                 </div>
 
@@ -444,6 +498,12 @@ export default function ApplicationCopilot({ job, onClose }) {
                       emptyLabel="No remaining blockers were reported."
                     />
                   </div>
+                </div>
+
+                <div className="bg-[#09090b] border border-[#27272a] rounded-xl p-4 text-sm text-[#d4d4d8]">
+                  Resume upload status: {fillResult.resume_required
+                    ? (fillResult.resume_uploaded ? 'Uploaded by TinyFish' : 'Not uploaded during this pass')
+                    : 'Not needed during this pass'}
                 </div>
 
                 {fillResult.final_page_summary && (

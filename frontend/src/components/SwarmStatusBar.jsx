@@ -1,8 +1,5 @@
 import { Check, Loader2, Radio, X } from 'lucide-react'
-
-const DEFAULT_LANES = [
-  { id: 'linkedin_0', name: 'LinkedIn', color: '#0a66c2' },
-]
+import { DEFAULT_TARGET_URLS } from '../lib/defaultTargets'
 
 function laneNameFromUrl(url, index) {
   try {
@@ -18,6 +15,10 @@ function laneIdFromUrl(url, index) {
     const { hostname } = new URL(url.startsWith('http') ? url : `https://${url}`)
     if (hostname.includes('linkedin.com')) return `linkedin_${index}`
     if (hostname.includes('indeed.com')) return `indeed_${index}`
+    if (hostname.includes('wellfound.com')) return `wellfound_${index}`
+    if (hostname.includes('workatastartup.com')) return `yc_waas_${index}`
+    if (hostname.includes('greenhouse.io')) return `greenhouse_${index}`
+    if (hostname.includes('lever.co')) return `lever_${index}`
   } catch {
     return `custom_${index}`
   }
@@ -34,7 +35,11 @@ export default function SwarmStatusBar({ statuses, totalJobs, targetUrls = [] })
       name: laneNameFromUrl(url, index),
       color: '#3b82f6',
     }))
-    : DEFAULT_LANES
+    : DEFAULT_TARGET_URLS.map((url, index) => ({
+      id: laneIdFromUrl(url, index),
+      name: laneNameFromUrl(url, index),
+      color: '#3b82f6',
+    }))
 
   const dynamicLanes = Object.entries(statuses).map(([id, status]) => ({
     id,

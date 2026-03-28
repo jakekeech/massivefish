@@ -94,17 +94,11 @@ export default function ProfileForm({ profile, setProfile }) {
               value={profile.location}
               onChange={handleChange('location')}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
-<<<<<<< HEAD
-              placeholder="Your Location"
-=======
               placeholder="Location"
->>>>>>> 0de43cc9e216fd396d4d88ae4b5c6906696a91e4
             />
           </div>
         </div>
 
-<<<<<<< HEAD
-=======
         <div className="relative">
           <InputIcon icon={Linkedin} />
           <input
@@ -127,7 +121,6 @@ export default function ProfileForm({ profile, setProfile }) {
           />
         </div>
 
->>>>>>> 0de43cc9e216fd396d4d88ae4b5c6906696a91e4
         <div className="relative">
           <InputIcon icon={Briefcase} />
           <input

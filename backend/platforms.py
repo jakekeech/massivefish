@@ -4,6 +4,9 @@ from models import Platform
 
 
 DEFAULT_TARGET_URLS = [
+    "https://www.indeed.com",
+    "https://wellfound.com/jobs",
+    "https://www.workatastartup.com/jobs",
     "https://www.linkedin.com",
 ]
 
@@ -67,12 +70,12 @@ Find current job or internship listings relevant to:
 - keywords: {keyword_text}
 
 Instructions:
-1. Starting from the provided URL, navigate to the site's jobs, careers, internships, or search experience.
+1. Starting from the provided URL, if the page is already a job listing, extract the details from it. If not, navigate to the site's jobs, careers, internships, or search experience.
 2. If the site has a search box or filters, use them to search for the role and location.
 3. Prefer recent, currently-open listings. If a recency filter exists, use the newest/recent option.
 4. Dismiss cookie banners, popups, sign-in walls, or modal interruptions when possible.
 5. Stay on the provided site unless the site itself opens its hosted jobs board.
-6. Extract up to 10 of the best-matching listings visible during this run.
+6. Extract up to 3 of the best-matching listings visible during this run.
 7. Follow the output contract exactly. Do not rename keys, wrap the array in an object, or return markdown.
 
 If the provided page is not already the jobs page, navigate to the appropriate careers/jobs section first.
@@ -128,6 +131,12 @@ def build_platform_start_url(
 
     if platform == Platform.LINKEDIN and path == "/":
         return f"{parsed.scheme}://{hostname}/jobs/search/?keywords={encoded_role}&location={encoded_location}&sortBy=DD"
+
+    if platform == Platform.WELLFOUND and path == "/":
+        return f"{parsed.scheme}://{hostname}/jobs"
+
+    if platform == Platform.YC_WAAS and path == "/":
+        return f"{parsed.scheme}://{hostname}/jobs"
 
     return normalized_url
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
-export default function ResumeUploader({ onProfileParsed }) {
+export default function ResumeUploader({ onResumeParsed }) {
   const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
@@ -68,7 +68,11 @@ export default function ResumeUploader({ onProfileParsed }) {
 
       const parsedData = await response.json()
       setUploadSuccess(true)
-      onProfileParsed(parsedData)
+      if (parsedData?.profile) {
+        onResumeParsed(parsedData)
+      } else {
+        onResumeParsed({ profile: parsedData, resume: null })
+      }
 
       // Clear success message after 3 seconds
       setTimeout(() => setUploadSuccess(false), 3000)

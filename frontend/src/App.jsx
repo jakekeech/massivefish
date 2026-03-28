@@ -6,6 +6,7 @@ import HuntDashboard from './components/HuntDashboard'
 export default function App() {
   const [step, setStep] = useState('setup') // 'setup' | 'hunting'
   const [huntId, setHuntId] = useState(null)
+  const [resume, setResume] = useState(null)
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -17,7 +18,6 @@ export default function App() {
     current_title: '',
     years_of_experience: '',
     education: '',
-    years_of_experience: '',
     skills: [],
   })
   const [searchConfig, setSearchConfig] = useState({
@@ -45,6 +45,8 @@ export default function App() {
           <ProfileSetup
             profile={profile}
             setProfile={setProfile}
+            resume={resume}
+            setResume={setResume}
             searchConfig={searchConfig}
             setSearchConfig={setSearchConfig}
             onStartHunt={handleStartHunt}

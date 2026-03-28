@@ -54,6 +54,35 @@ class UserProfile(BaseModel):
     skills: list[str] = []
 
 
+class ResumeMetadata(BaseModel):
+    id: str
+    filename: str
+    content_type: str = "application/pdf"
+    size_bytes: int
+    uploaded_at: str
+    download_url: str = ""
+
+
+class StoredResume(BaseModel):
+    id: str
+    filename: str
+    content_type: str = "application/pdf"
+    size_bytes: int
+    uploaded_at: str
+    storage_path: str
+    extracted_text: str = ""
+
+    def to_public(self, download_url: str = "") -> ResumeMetadata:
+        return ResumeMetadata(
+            id=self.id,
+            filename=self.filename,
+            content_type=self.content_type,
+            size_bytes=self.size_bytes,
+            uploaded_at=self.uploaded_at,
+            download_url=download_url,
+        )
+
+
 class HuntRequest(BaseModel):
     role: str
     location: str
@@ -63,6 +92,11 @@ class HuntRequest(BaseModel):
 
 class ApplyRequest(BaseModel):
     job_id: str
+
+
+class ResumeParseResponse(BaseModel):
+    profile: UserProfile
+    resume: ResumeMetadata
 
 
 class HuntResult(BaseModel):

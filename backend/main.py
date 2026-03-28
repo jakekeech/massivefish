@@ -6,17 +6,35 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from apply_orchestrator import orchestrate_application
 from logging_utils import configure_logging, format_fields, get_logger
-from models import ApplyRequest, HuntRequest, HuntResult, Job, UserProfile
+from models import (
+    ApplyRequest,
+    HuntRequest,
+    HuntResult,
+    Job,
+    ResumeParseResponse,
+    StoredResume,
+    UserProfile,
+)
 from orchestrator import orchestrate_hunt
 from resume_parser import extract_text_from_pdf, parse_resume_with_ai
 from scorer import filter_duplicates, score_jobs
-from state import get_hunt, get_job, get_jobs_for_hunt, get_profile, save_hunt, set_profile
+from state import (
+    get_hunt,
+    get_job,
+    get_jobs_for_hunt,
+    get_profile,
+    get_resume,
+    save_hunt,
+    set_profile,
+    set_resume,
+)
 
 
 configure_logging()
@@ -24,6 +42,7 @@ logger = get_logger("jobswarm.api")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
+RESUME_STORAGE_DIR = BASE_DIR / "backend" / "data" / "resumes"
 ENV_FILE_LOADED = load_dotenv(ENV_PATH)
 
 
@@ -35,7 +54,56 @@ def env_status() -> dict[str, bool | str]:
         "env_file_loaded": ENV_FILE_LOADED,
         "tinyfish_api_key_present": bool(os.getenv("TINYFISH_API_KEY")),
         "openai_api_key_present": bool(os.getenv("OPENAI_API_KEY")),
+        "public_app_url_present": bool(os.getenv("PUBLIC_APP_URL")),
     }
+
+
+def _resume_download_url() -> str:
+    return "/api/resume/current/file"
+
+
+def _public_resume_download_url() -> str | None:
+    public_app_url = os.getenv("PUBLIC_APP_URL", "").rstrip("/")
+    if not public_app_url:
+        return None
+    return f"{public_app_url}{_resume_download_url()}"
+
+
+def _safe_resume_filename(filename: str | None) -> str:
+    cleaned = Path(filename or "resume.pdf").name.strip() or "resume.pdf"
+    if not cleaned.lower().endswith(".pdf"):
+        cleaned = f"{cleaned}.pdf"
+    return cleaned
+
+
+def _store_resume_file(file_bytes: bytes, filename: str | None, extracted_text: str = "") -> StoredResume:
+    RESUME_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    resume_id = str(uuid.uuid4())[:12]
+    safe_name = _safe_resume_filename(filename)
+    stored_path = RESUME_STORAGE_DIR / f"{resume_id}-{safe_name}"
+    stored_path.write_bytes(file_bytes)
+    return StoredResume(
+        id=resume_id,
+        filename=safe_name,
+        content_type="application/pdf",
+        size_bytes=len(file_bytes),
+        uploaded_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        storage_path=str(stored_path),
+        extracted_text=extracted_text,
+    )
+
+
+def _delete_stored_resume_file(resume: StoredResume | None) -> None:
+    if not resume:
+        return
+
+    try:
+        Path(resume.storage_path).unlink(missing_ok=True)
+    except Exception:
+        logger.warning(
+            "Failed deleting stored resume file %s",
+            format_fields(resume_id=resume.id, storage_path=resume.storage_path),
+        )
 
 
 @asynccontextmanager
@@ -142,10 +210,10 @@ async def get_current_profile():
 
 
 @app.post("/api/resume/parse")
-async def parse_resume(file: UploadFile):
+async def parse_resume(file: UploadFile = File(...)):
     """
     Parse a PDF resume and extract structured profile data using AI.
-    Validates file type and size before processing.
+    Validates, stores, and parses a PDF resume using AI.
     """
     logger.info(
         "Resume parse requested %s",
@@ -156,7 +224,9 @@ async def parse_resume(file: UploadFile):
     )
 
     # Validate file type
-    if file.content_type != "application/pdf":
+    safe_filename = _safe_resume_filename(file.filename)
+    is_pdf = file.content_type == "application/pdf" or safe_filename.lower().endswith(".pdf")
+    if not is_pdf:
         logger.warning(
             "Invalid file type uploaded %s",
             format_fields(filename=file.filename, content_type=file.content_type),
@@ -183,8 +253,11 @@ async def parse_resume(file: UploadFile):
 
     logger.info(
         "File validation passed %s",
-        format_fields(filename=file.filename, size_mb=round(file_size_mb, 2)),
+        format_fields(filename=safe_filename, size_mb=round(file_size_mb, 2)),
     )
+
+    previous_resume = get_resume()
+    stored_resume: StoredResume | None = None
 
     try:
         # Extract text from PDF
@@ -201,28 +274,39 @@ async def parse_resume(file: UploadFile):
 
         # Parse with AI
         profile = parse_resume_with_ai(resume_text)
+        stored_resume = _store_resume_file(file_bytes, safe_filename, extracted_text=resume_text)
+        set_profile(profile)
+        set_resume(stored_resume)
+        if previous_resume and previous_resume.id != stored_resume.id:
+            _delete_stored_resume_file(previous_resume)
+        public_resume = stored_resume.to_public(download_url=_resume_download_url())
 
         logger.info(
             "Resume parsed successfully %s",
             format_fields(
-                filename=file.filename,
+                filename=safe_filename,
                 first_name=profile.first_name,
                 last_name=profile.last_name,
                 email=profile.email,
+                resume_id=stored_resume.id,
             ),
         )
 
-        return profile
+        return ResumeParseResponse(profile=profile, resume=public_resume)
 
     except HTTPException:
+        if stored_resume:
+            _delete_stored_resume_file(stored_resume)
         raise
     except Exception as exc:
+        if stored_resume:
+            _delete_stored_resume_file(stored_resume)
         logger.exception(
             "Resume parsing failed %s",
-            format_fields(filename=file.filename, error=str(exc)),
+            format_fields(filename=safe_filename, error=str(exc)),
         )
-        # Check if it's an OpenAI error
-        if "openai" in str(exc).lower() or "api" in str(exc).lower():
+        # Surface likely upstream model/provider outages separately.
+        if any(term in str(exc).lower() for term in ("openai", "anthropic", "api", "rate limit")):
             raise HTTPException(
                 status_code=503,
                 detail=f"AI service unavailable: {str(exc)}",
@@ -231,6 +315,34 @@ async def parse_resume(file: UploadFile):
             status_code=422,
             detail=f"Failed to parse resume: {str(exc)}",
         )
+
+
+@app.get("/api/resume/current")
+async def get_current_resume():
+    """Get metadata for the currently stored resume."""
+    resume = get_resume()
+    if not resume:
+        raise HTTPException(status_code=404, detail="No resume stored")
+
+    return resume.to_public(download_url=_resume_download_url())
+
+
+@app.get("/api/resume/current/file")
+async def download_current_resume():
+    """Download the currently stored resume file."""
+    resume = get_resume()
+    if not resume:
+        raise HTTPException(status_code=404, detail="No resume stored")
+
+    resume_path = Path(resume.storage_path)
+    if not resume_path.exists():
+        raise HTTPException(status_code=404, detail="Stored resume file was not found")
+
+    return FileResponse(
+        path=resume_path,
+        media_type=resume.content_type,
+        filename=resume.filename,
+    )
 
 
 @app.post("/api/hunt")
@@ -380,6 +492,8 @@ async def apply_to_job(request: ApplyRequest):
     application_id = str(uuid.uuid4())[:8]
     profile = get_profile()
     job = get_job(request.job_id)
+    resume = get_resume()
+    public_resume_url = _public_resume_download_url()
 
     logger.info(
         "Application requested %s",
@@ -388,6 +502,8 @@ async def apply_to_job(request: ApplyRequest):
             job_id=request.job_id,
             profile_present=profile is not None,
             job_found=job is not None,
+            resume_present=resume is not None,
+            public_resume_url_present=bool(public_resume_url),
         ),
     )
 
@@ -399,7 +515,13 @@ async def apply_to_job(request: ApplyRequest):
 
     async def event_generator():
         try:
-            async for event in orchestrate_application(job, profile, application_id):
+            async for event in orchestrate_application(
+                job,
+                profile,
+                application_id,
+                resume=resume,
+                public_resume_url=public_resume_url,
+            ):
                 logger.info(
                     "Streaming application SSE event %s",
                     format_fields(

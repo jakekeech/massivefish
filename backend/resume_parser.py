@@ -50,7 +50,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
         text_parts = []
 
         for page_num, page in enumerate(reader.pages, start=1):
-            page_text = page.extract_text()
+            page_text = page.extract_text() or ""
             text_parts.append(page_text)
             logger.info(
                 "Extracted text from page %s",

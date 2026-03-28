@@ -1,5 +1,6 @@
 import json
 import os
+from urllib.parse import urlsplit, urlunsplit
 
 from anthropic import Anthropic
 from openai import OpenAI
@@ -9,6 +10,7 @@ from models import Job, UserProfile
 
 
 logger = get_logger("jobswarm.scorer")
+SCORING_JOB_LIMIT = max(1, int(os.getenv("SCORING_JOB_LIMIT", "10")))
 
 SCORER_SYSTEM_PROMPT = """You are a job matching engine. Given a candidate profile and job listings, score each listing's relevance from 0-100 and provide 1-3 short match reasons.
 
@@ -58,6 +60,50 @@ JOB LISTINGS TO SCORE ({len(jobs)} jobs):
 {jobs_json}"""
 
 
+def _normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return " ".join(str(value).strip().lower().split())
+
+
+def _normalize_job_url(job_url: str | None) -> str:
+    if not job_url:
+        return ""
+    parsed = urlsplit(job_url.strip())
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path.rstrip("/"), "", ""))
+
+
+def _job_dedupe_key(job: Job) -> tuple[str, ...]:
+    normalized_url = _normalize_job_url(job.job_url)
+    if normalized_url:
+        return ("url", normalized_url)
+
+    return (
+        "meta",
+        _normalize_text(job.company_name),
+        _normalize_text(job.job_title),
+        _normalize_text(job.location),
+    )
+
+
+def _mark_local_duplicates(jobs: list[Job]) -> list[Job]:
+    seen_keys: set[tuple[str, ...]] = set()
+    unique_jobs: list[Job] = []
+
+    for job in jobs:
+        key = _job_dedupe_key(job)
+        if key in seen_keys:
+            job.is_duplicate = True
+            if not job.match_reasons:
+                job.match_reasons = ["Possible duplicate removed during fast local dedupe."]
+            continue
+
+        seen_keys.add(key)
+        unique_jobs.append(job)
+
+    return unique_jobs
+
+
 def score_jobs(
     jobs: list[Job],
     profile: UserProfile | None,
@@ -71,6 +117,9 @@ def score_jobs(
         logger.info("Skipping scoring because there are no jobs %s", format_fields(hunt_id=hunt_id))
         return []
 
+    unique_jobs = _mark_local_duplicates(jobs)
+    jobs_to_score = unique_jobs[:SCORING_JOB_LIMIT]
+
     # Check which API to use
     use_openai = bool(os.getenv("OPENAI_API_KEY"))
     use_anthropic = bool(os.getenv("ANTHROPIC_API_KEY"))
@@ -80,6 +129,8 @@ def score_jobs(
         format_fields(
             hunt_id=hunt_id,
             jobs_count=len(jobs),
+            unique_jobs_count=len(unique_jobs),
+            jobs_selected_for_scoring=len(jobs_to_score),
             role=role,
             location=location,
             keywords=keywords,
@@ -90,7 +141,7 @@ def score_jobs(
         ),
     )
 
-    prompt = build_scorer_prompt(profile, role, location, keywords, jobs)
+    prompt = build_scorer_prompt(profile, role, location, keywords, jobs_to_score)
 
     try:
         if use_openai:
@@ -144,7 +195,7 @@ def score_jobs(
             format_fields(hunt_id=hunt_id, scored_items=len(scored_data)),
         )
 
-        for job in jobs:
+        for job in jobs_to_score:
             if job.id in scored_data:
                 data = scored_data[job.id]
                 job.relevance_score = data.get("relevance_score", 0)

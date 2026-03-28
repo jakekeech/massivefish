@@ -8,7 +8,7 @@ import httpx
 from openai import OpenAI
 
 from logging_utils import format_fields, get_logger
-from models import Job, UserProfile
+from models import Job, StoredResume, UserProfile
 from orchestrator import (
     TINYFISH_SSE_URL,
     _cancel_run,
@@ -207,11 +207,15 @@ def _infer_fill_status(payload: dict[str, Any], default: str) -> str:
     reason = _normalize_text(payload.get("reason")).lower()
     notes = " ".join(_normalize_string_list(payload.get("notes"))).lower()
     haystack = f"{reason} {notes}".strip()
+    resume_uploaded = _normalize_bool(payload.get("resume_uploaded") or payload.get("resume_attached"))
 
     if any(term in haystack for term in ("log in", "login", "sign in", "account")):
         return "login_required"
 
-    if any(term in haystack for term in ("captcha", "upload", "manual", "authorization", "salary", "sponsorship")):
+    if any(term in haystack for term in ("captcha", "manual", "authorization", "salary", "sponsorship")):
+        return "manual_required"
+
+    if "upload" in haystack and not resume_uploaded:
         return "manual_required"
 
     filled = _normalize_string_list(payload.get("filled_fields"))
@@ -232,6 +236,7 @@ def parse_fill_result(result: Any, inspection: dict[str, Any]) -> dict[str, Any]
         "filled_fields": [],
         "remaining_fields": inspection.get("fields_detected", []),
         "cover_letter_used": False,
+        "resume_uploaded": False,
         "notes": ["No structured fill summary was returned."],
         "final_page_summary": "",
     }
@@ -245,6 +250,7 @@ def parse_fill_result(result: Any, inspection: dict[str, Any]) -> dict[str, Any]
         "filled_fields": _normalize_string_list(payload.get("filled_fields")),
         "remaining_fields": _normalize_string_list(payload.get("remaining_fields")),
         "cover_letter_used": _normalize_bool(payload.get("cover_letter_used")),
+        "resume_uploaded": _normalize_bool(payload.get("resume_uploaded") or payload.get("resume_attached")),
         "notes": _normalize_string_list(payload.get("notes")),
         "final_page_summary": _normalize_text(
             payload.get("final_page_summary") or payload.get("page_summary"),
@@ -254,7 +260,10 @@ def parse_fill_result(result: Any, inspection: dict[str, Any]) -> dict[str, Any]
     }
 
     if not fill_result["remaining_fields"] and inspection.get("requires_resume_upload"):
-        fill_result["remaining_fields"] = ["Resume upload"]
+        if fill_result["resume_uploaded"]:
+            fill_result["remaining_fields"] = []
+        else:
+            fill_result["remaining_fields"] = ["Resume upload"]
 
     return fill_result
 
@@ -274,6 +283,24 @@ def _format_profile_for_prompt(profile: UserProfile) -> str:
         "skills": profile.skills,
     }
     return json.dumps(profile_payload, indent=2)
+
+
+def _build_resume_context(resume: StoredResume | None, public_resume_url: str | None) -> str:
+    if not resume:
+        return "No stored resume file is available for this candidate."
+
+    lines = [
+        "Stored resume file details:",
+        f"- filename: {resume.filename}",
+        f"- uploaded_at: {resume.uploaded_at}",
+        f"- size_bytes: {resume.size_bytes}",
+    ]
+    if public_resume_url:
+        lines.append(f"- public_download_url: {public_resume_url}")
+    else:
+        lines.append("- public_download_url: not configured")
+
+    return "\n".join(lines)
 
 
 def build_apply_inspection_goal(job: Job) -> str:
@@ -320,10 +347,13 @@ def build_safe_fill_goal(
     profile: UserProfile,
     inspection: dict[str, Any],
     cover_letter: str,
+    resume: StoredResume | None,
+    public_resume_url: str | None,
 ) -> str:
     application_url = inspection.get("application_url") or job.job_url
     candidate_profile = _format_profile_for_prompt(profile)
     detected_fields = json.dumps(inspection.get("fields_detected", []))
+    resume_context = _build_resume_context(resume, public_resume_url)
 
     return f"""
 You are safely drafting a job application for review.
@@ -339,6 +369,9 @@ Candidate profile JSON:
 Known fields from the previous inspection:
 {detected_fields}
 
+Resume file context:
+{resume_context}
+
 Cover letter to use if a text area is present:
 \"\"\"
 {cover_letter}
@@ -349,7 +382,9 @@ Instructions:
 2. Fill only fields that exactly match the provided candidate profile.
 3. Paste the cover letter only into a cover letter / message / additional information text area if one exists.
 4. Do not create an account.
-5. Do not upload files.
+5. If the form requires a resume:
+   - If a stored resume is available and the environment clearly lets you attach it directly, do so.
+   - If uploading the stored resume is not possible from this environment, stop and report that Resume upload is still remaining.
 6. Do not answer sensitive questions about work authorization, sponsorship, salary expectations, demographics, disability, veteran status, legal attestations, or checkboxes that submit consent.
 7. Do not click the final submit button.
 8. Stop on the final review screen or the furthest safe point you can reach.
@@ -362,6 +397,7 @@ JSON contract:
   "filled_fields": ["string"],
   "remaining_fields": ["string"],
   "cover_letter_used": true,
+  "resume_uploaded": false,
   "notes": ["string"],
   "final_page_summary": "string"
 }}
@@ -607,6 +643,9 @@ async def orchestrate_application(
     job: Job,
     profile: UserProfile,
     application_id: str,
+    *,
+    resume: StoredResume | None = None,
+    public_resume_url: str | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     platform = infer_platform(job.job_url)
     platform_label = get_platform_display_name(platform, job.job_url)
@@ -621,6 +660,8 @@ async def orchestrate_application(
             "company_name": job.company_name,
             "platform": platform.value,
             "platform_label": platform_label,
+            "resume_available": resume is not None,
+            "resume": resume.to_public(download_url="/api/resume/current/file").model_dump() if resume else None,
         },
     }
 
@@ -680,6 +721,8 @@ async def orchestrate_application(
         return
 
     inspection = parse_apply_inspection(inspection_step.payload, job)
+    if inspection["requires_resume_upload"] and not resume:
+        inspection["notes"].append("A resume is required, but no stored resume file is currently available.")
     yield {
         "event": "apply_inspection",
         "data": {
@@ -733,7 +776,14 @@ async def orchestrate_application(
             stage="fill",
             label=f"{platform_label} AutoFill",
             url=fill_url,
-            goal=build_safe_fill_goal(job, profile, inspection, cover_letter),
+            goal=build_safe_fill_goal(
+                job,
+                profile,
+                inspection,
+                cover_letter,
+                resume,
+                public_resume_url,
+            ),
             proxy_config=proxy_config,
             event_queue=event_queue,
         )
@@ -757,6 +807,7 @@ async def orchestrate_application(
             "filled_fields": [],
             "remaining_fields": inspection.get("fields_detected", []),
             "cover_letter_used": False,
+            "resume_uploaded": False,
             "notes": [fill_step.error],
             "final_page_summary": "",
         }
@@ -769,6 +820,8 @@ async def orchestrate_application(
             **fill_result,
             "job_id": job.id,
             "application_url": fill_url,
+            "resume_available": resume is not None,
+            "resume_required": inspection.get("requires_resume_upload", False),
         },
     }
 

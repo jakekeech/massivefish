@@ -5,6 +5,7 @@ import JobFeed from './JobFeed'
 import LivePreview from './LivePreview'
 import StatsRow from './StatsRow'
 import SwarmStatusBar from './SwarmStatusBar'
+import { DEFAULT_TARGET_URLS } from '../lib/defaultTargets'
 import { consumeEventBlocks, parseEventBlock } from '../lib/sse'
 
 function previewNameFromUrl(url, index) {
@@ -21,6 +22,10 @@ function previewIdFromUrl(url, index) {
     const { hostname } = new URL(url.startsWith('http') ? url : `https://${url}`)
     if (hostname.includes('linkedin.com')) return `linkedin_${index}`
     if (hostname.includes('indeed.com')) return `indeed_${index}`
+    if (hostname.includes('wellfound.com')) return `wellfound_${index}`
+    if (hostname.includes('workatastartup.com')) return `yc_waas_${index}`
+    if (hostname.includes('greenhouse.io')) return `greenhouse_${index}`
+    if (hostname.includes('lever.co')) return `lever_${index}`
   } catch {
     return `custom_${index}`
   }
@@ -272,7 +277,7 @@ export default function HuntDashboard({ huntId, searchConfig }) {
     : 0
   const configuredPreviewTargets = (searchConfig.target_urls.length > 0
     ? searchConfig.target_urls
-    : ['https://www.linkedin.com']
+    : DEFAULT_TARGET_URLS
   ).map((url, index) => ({
     id: previewIdFromUrl(url, index),
     label: previewNameFromUrl(url, index),
