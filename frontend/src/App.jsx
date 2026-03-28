@@ -10,7 +10,12 @@ export default function App() {
     first_name: '',
     last_name: '',
     email: '',
+    phone: '',
+    location: '',
+    linkedin_url: '',
+    github_url: '',
     current_title: '',
+    years_of_experience: '',
     education: '',
     skills: [],
   })
