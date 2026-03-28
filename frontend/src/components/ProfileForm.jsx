@@ -1,8 +1,32 @@
-import { User, Mail, Briefcase, GraduationCap, MapPin, Phone } from 'lucide-react'
+import { User, Mail, Briefcase, GraduationCap, Phone, MapPin, Linkedin, Github, Clock, Tag, X } from 'lucide-react'
+import { useState } from 'react'
 
 export default function ProfileForm({ profile, setProfile }) {
+  const [skillInput, setSkillInput] = useState('')
+
   const handleChange = (field) => (e) => {
     setProfile({ ...profile, [field]: e.target.value })
+  }
+
+  const handleAddSkill = () => {
+    if (skillInput.trim() && !profile.skills.includes(skillInput.trim())) {
+      setProfile({ ...profile, skills: [...profile.skills, skillInput.trim()] })
+      setSkillInput('')
+    }
+  }
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setProfile({
+      ...profile,
+      skills: profile.skills.filter(skill => skill !== skillToRemove)
+    })
+  }
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddSkill()
+    }
   }
 
   const InputIcon = ({ icon: Icon }) => (
@@ -70,11 +94,40 @@ export default function ProfileForm({ profile, setProfile }) {
               value={profile.location}
               onChange={handleChange('location')}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+<<<<<<< HEAD
               placeholder="Your Location"
+=======
+              placeholder="Location"
+>>>>>>> 0de43cc9e216fd396d4d88ae4b5c6906696a91e4
             />
           </div>
         </div>
 
+<<<<<<< HEAD
+=======
+        <div className="relative">
+          <InputIcon icon={Linkedin} />
+          <input
+            type="url"
+            value={profile.linkedin_url}
+            onChange={handleChange('linkedin_url')}
+            className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+            placeholder="LinkedIn URL"
+          />
+        </div>
+
+        <div className="relative">
+          <InputIcon icon={Github} />
+          <input
+            type="url"
+            value={profile.github_url}
+            onChange={handleChange('github_url')}
+            className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+            placeholder="GitHub URL"
+          />
+        </div>
+
+>>>>>>> 0de43cc9e216fd396d4d88ae4b5c6906696a91e4
         <div className="relative">
           <InputIcon icon={Briefcase} />
           <input
@@ -87,6 +140,17 @@ export default function ProfileForm({ profile, setProfile }) {
         </div>
 
         <div className="relative">
+          <InputIcon icon={Clock} />
+          <input
+            type="text"
+            value={profile.years_of_experience}
+            onChange={handleChange('years_of_experience')}
+            className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+            placeholder="Years of Experience (e.g. 5)"
+          />
+        </div>
+
+        <div className="relative">
           <InputIcon icon={GraduationCap} />
           <input
             type="text"
@@ -95,6 +159,46 @@ export default function ProfileForm({ profile, setProfile }) {
             className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
             placeholder="Education (e.g. BS CS, Stanford)"
           />
+        </div>
+
+        <div>
+          <div className="relative">
+            <InputIcon icon={Tag} />
+            <input
+              type="text"
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-20 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+              placeholder="Add a skill (e.g. React, Python)"
+            />
+            <button
+              type="button"
+              onClick={handleAddSkill}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-[#22c55e] text-black text-sm font-medium rounded hover:bg-[#22c55e]/90 transition-colors"
+            >
+              Add
+            </button>
+          </div>
+          {profile.skills.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {profile.skills.map((skill) => (
+                <div
+                  key={skill}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#27272a] rounded-full text-sm text-white"
+                >
+                  <span>{skill}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill)}
+                    className="hover:text-red-400 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Terminal } from 'lucide-react'
+import { Terminal, CheckCircle } from 'lucide-react'
 import HuntButton from './HuntButton'
 import ProfileForm from './ProfileForm'
+import ResumeUploader from './ResumeUploader'
 import SearchConfig from './SearchConfig'
 
 export default function ProfileSetup({
@@ -13,8 +14,16 @@ export default function ProfileSetup({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [resumeSuccess, setResumeSuccess] = useState(false)
 
   const canHunt = searchConfig.role.trim() && searchConfig.location.trim()
+
+  const handleResumeParsed = (parsedData) => {
+    setProfile(parsedData)
+    setResumeSuccess(true)
+    // Clear success message after 3 seconds
+    setTimeout(() => setResumeSuccess(false), 3000)
+  }
 
   const handleHunt = async () => {
     if (!canHunt) return
@@ -57,9 +66,20 @@ export default function ProfileSetup({
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <ProfileForm profile={profile} setProfile={setProfile} />
-        <SearchConfig config={searchConfig} setConfig={setSearchConfig} />
+      <div className="space-y-6">
+        <ResumeUploader onProfileParsed={handleResumeParsed} />
+
+        {resumeSuccess && (
+          <div className="bg-[#22c55e]/10 border border-[#22c55e]/50 rounded-xl p-4 text-[#22c55e] flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            <span>Resume parsed successfully! Review your profile below.</span>
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <ProfileForm profile={profile} setProfile={setProfile} />
+          <SearchConfig config={searchConfig} setConfig={setSearchConfig} />
+        </div>
       </div>
 
       {error && (
