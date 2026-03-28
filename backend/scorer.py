@@ -1,6 +1,7 @@
 import json
 import os
 
+from anthropic import Anthropic
 from openai import OpenAI
 
 from logging_utils import format_fields, get_logger
@@ -65,12 +66,15 @@ def score_jobs(
     keywords: list[str],
     hunt_id: str | None = None,
 ) -> list[Job]:
-    """Score and deduplicate jobs using GPT-4o-mini."""
+    """Score and deduplicate jobs using AI (OpenAI or Anthropic fallback)."""
     if not jobs:
         logger.info("Skipping scoring because there are no jobs %s", format_fields(hunt_id=hunt_id))
         return []
 
-    api_key_present = bool(os.getenv("OPENAI_API_KEY"))
+    # Check which API to use
+    use_openai = bool(os.getenv("OPENAI_API_KEY"))
+    use_anthropic = bool(os.getenv("ANTHROPIC_API_KEY"))
+
     logger.info(
         "Scoring started %s",
         format_fields(
@@ -80,33 +84,60 @@ def score_jobs(
             location=location,
             keywords=keywords,
             profile_present=profile is not None,
-            openai_api_key_present=api_key_present,
+            openai_api_key_present=use_openai,
+            anthropic_api_key_present=use_anthropic,
+            using_api="openai" if use_openai else "anthropic" if use_anthropic else "none",
         ),
     )
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = build_scorer_prompt(profile, role, location, keywords, jobs)
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SCORER_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            response_format={"type": "json_object"},
-        )
-        logger.info(
-            "Scoring response received %s",
-            format_fields(
-                hunt_id=hunt_id,
-                choices=len(response.choices),
-                model=getattr(response, "model", None),
-            ),
-        )
-
-        result = json.loads(response.choices[0].message.content)
+        if use_openai:
+            # Use OpenAI API
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": SCORER_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                response_format={"type": "json_object"},
+            )
+            logger.info(
+                "Scoring response received (OpenAI) %s",
+                format_fields(
+                    hunt_id=hunt_id,
+                    choices=len(response.choices),
+                    model=getattr(response, "model", None),
+                ),
+            )
+            result = json.loads(response.choices[0].message.content)
+        elif use_anthropic:
+            # Fallback to Anthropic API
+            client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=4000,
+                temperature=0.3,
+                system=SCORER_SYSTEM_PROMPT,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+            )
+            logger.info(
+                "Scoring response received (Anthropic) %s",
+                format_fields(
+                    hunt_id=hunt_id,
+                    model=response.model,
+                    stop_reason=response.stop_reason,
+                ),
+            )
+            result = json.loads(response.content[0].text)
+        else:
+            logger.error("No API key available for scoring %s", format_fields(hunt_id=hunt_id))
+            return jobs
         scored_data = {item["id"]: item for item in result.get("scored_jobs", [])}
         logger.info(
             "Parsed scoring payload %s",

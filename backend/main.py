@@ -6,13 +6,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 from logging_utils import configure_logging, format_fields, get_logger
 from models import HuntRequest, HuntResult, Job, UserProfile
 from orchestrator import orchestrate_hunt
+from resume_parser import extract_text_from_pdf, parse_resume_with_ai
 from scorer import filter_duplicates, score_jobs
 from state import get_hunt, get_jobs_for_hunt, get_profile, save_hunt, set_profile
 
@@ -79,7 +80,9 @@ async def log_requests(request: Request, call_next):
         elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
         logger.exception(
             "HTTP request failed %s",
-            format_fields(method=request.method, path=request.url.path, elapsed_ms=elapsed_ms),
+            format_fields(
+                method=request.method, path=request.url.path, elapsed_ms=elapsed_ms
+            ),
         )
         raise
 
@@ -137,6 +140,98 @@ async def get_current_profile():
     return profile
 
 
+@app.post("/api/resume/parse")
+async def parse_resume(file: UploadFile):
+    """
+    Parse a PDF resume and extract structured profile data using AI.
+    Validates file type and size before processing.
+    """
+    logger.info(
+        "Resume parse requested %s",
+        format_fields(
+            filename=file.filename,
+            content_type=file.content_type,
+        ),
+    )
+
+    # Validate file type
+    if file.content_type != "application/pdf":
+        logger.warning(
+            "Invalid file type uploaded %s",
+            format_fields(filename=file.filename, content_type=file.content_type),
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Expected PDF, got {file.content_type}",
+        )
+
+    # Read file content
+    file_bytes = await file.read()
+    file_size_mb = len(file_bytes) / (1024 * 1024)
+
+    # Validate file size (10MB max)
+    if file_size_mb > 10:
+        logger.warning(
+            "File too large %s",
+            format_fields(filename=file.filename, size_mb=round(file_size_mb, 2)),
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is 10MB, got {file_size_mb:.2f}MB",
+        )
+
+    logger.info(
+        "File validation passed %s",
+        format_fields(filename=file.filename, size_mb=round(file_size_mb, 2)),
+    )
+
+    try:
+        # Extract text from PDF
+        resume_text = extract_text_from_pdf(file_bytes)
+
+        if not resume_text.strip():
+            logger.warning(
+                "No text extracted from PDF %s", format_fields(filename=file.filename)
+            )
+            raise HTTPException(
+                status_code=422,
+                detail="Could not extract text from PDF. The file may be empty or corrupted.",
+            )
+
+        # Parse with AI
+        profile = parse_resume_with_ai(resume_text)
+
+        logger.info(
+            "Resume parsed successfully %s",
+            format_fields(
+                filename=file.filename,
+                first_name=profile.first_name,
+                last_name=profile.last_name,
+                email=profile.email,
+            ),
+        )
+
+        return profile
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Resume parsing failed %s",
+            format_fields(filename=file.filename, error=str(exc)),
+        )
+        # Check if it's an OpenAI error
+        if "openai" in str(exc).lower() or "api" in str(exc).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=f"AI service unavailable: {str(exc)}",
+            )
+        raise HTTPException(
+            status_code=422,
+            detail=f"Failed to parse resume: {str(exc)}",
+        )
+
+
 @app.post("/api/hunt")
 async def start_hunt(request: HuntRequest):
     """
@@ -170,9 +265,11 @@ async def start_hunt(request: HuntRequest):
             ):
                 logger.info(
                     "Streaming SSE event %s",
-                    format_fields(hunt_id=hunt_id, event=event["event"], data=event["data"]),
+                    format_fields(
+                        hunt_id=hunt_id, event=event["event"], data=event["data"]
+                    ),
                 )
-                
+
                 if event["event"] == "scraping_complete":
                     for job_data in event["data"]["jobs"]:
                         all_jobs.append(Job(**job_data))
@@ -189,7 +286,9 @@ async def start_hunt(request: HuntRequest):
             )
             yield {
                 "event": "scoring",
-                "data": json.dumps({"message": f"Scoring {len(all_jobs)} jobs with AI..."}),
+                "data": json.dumps(
+                    {"message": f"Scoring {len(all_jobs)} jobs with AI..."}
+                ),
             }
 
             scored_jobs = score_jobs(
@@ -238,10 +337,12 @@ async def start_hunt(request: HuntRequest):
             )
             yield {
                 "event": "hunt_error",
-                "data": json.dumps({
-                    "hunt_id": hunt_id,
-                    "error": str(exc),
-                }),
+                "data": json.dumps(
+                    {
+                        "hunt_id": hunt_id,
+                        "error": str(exc),
+                    }
+                ),
             }
 
     return EventSourceResponse(event_generator())
@@ -254,7 +355,9 @@ async def get_jobs(hunt_id: str):
     hunt = get_hunt(hunt_id)
 
     if not hunt:
-        logger.warning("Jobs requested for unknown hunt %s", format_fields(hunt_id=hunt_id))
+        logger.warning(
+            "Jobs requested for unknown hunt %s", format_fields(hunt_id=hunt_id)
+        )
         raise HTTPException(status_code=404, detail="Hunt not found")
 
     logger.info(
