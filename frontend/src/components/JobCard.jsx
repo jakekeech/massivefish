@@ -1,4 +1,4 @@
-import { ExternalLink, MapPin, Clock, DollarSign, Briefcase, Sparkles } from 'lucide-react'
+import { ExternalLink, MapPin, Clock, DollarSign, Briefcase, Sparkles, Bot } from 'lucide-react'
 
 function getScoreColor(score) {
   if (score >= 90) return { text: 'text-[#22c55e]', bg: 'bg-[#22c55e]/10', border: 'border-[#22c55e]/30' }
@@ -44,7 +44,7 @@ function getPlatformColor(platform) {
   return colors[platform] || '#71717a'
 }
 
-export default function JobCard({ job, index }) {
+export default function JobCard({ job, index, onApply }) {
   const scoreStyle = getScoreColor(job.relevance_score)
 
   return (
@@ -126,11 +126,12 @@ export default function JobCard({ job, index }) {
       {/* Actions */}
       <div className="flex gap-3 pt-2 border-t border-[#27272a]">
         <button
-          disabled
-          className="flex-1 py-2.5 rounded-lg bg-[#27272a] text-[#52525b] cursor-not-allowed text-sm font-medium"
-          title="Coming Soon"
+          type="button"
+          onClick={() => onApply?.(job)}
+          className="flex-1 py-2.5 rounded-lg bg-[#22c55e] text-black hover:bg-[#16a34a] transition-colors text-sm font-semibold flex items-center justify-center gap-2"
         >
-          Apply For Me (Soon)
+          <Bot className="w-4 h-4" />
+          Apply For Me
         </button>
         <a
           href={job.job_url}

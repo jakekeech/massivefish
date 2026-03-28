@@ -1,4 +1,4 @@
-import { User, Mail, Briefcase, GraduationCap } from 'lucide-react'
+import { User, Mail, Briefcase, GraduationCap, MapPin, Phone } from 'lucide-react'
 
 export default function ProfileForm({ profile, setProfile }) {
   const handleChange = (field) => (e) => {
@@ -50,6 +50,29 @@ export default function ProfileForm({ profile, setProfile }) {
             className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
             placeholder="Email address"
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="relative">
+            <InputIcon icon={Phone} />
+            <input
+              type="tel"
+              value={profile.phone}
+              onChange={handleChange('phone')}
+              className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+              placeholder="Phone"
+            />
+          </div>
+          <div className="relative">
+            <InputIcon icon={MapPin} />
+            <input
+              type="text"
+              value={profile.location}
+              onChange={handleChange('location')}
+              className="w-full bg-[#09090b] border border-[#27272a] rounded-lg pl-10 pr-3 py-2.5 text-white placeholder:text-[#52525b] transition-colors"
+              placeholder="Your Location"
+            />
+          </div>
         </div>
 
         <div className="relative">

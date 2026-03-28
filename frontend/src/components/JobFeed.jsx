@@ -1,7 +1,7 @@
 import { Loader2, SearchX } from 'lucide-react'
 import JobCard from './JobCard'
 
-export default function JobFeed({ jobs, loading }) {
+export default function JobFeed({ jobs, loading, onApply }) {
   if (loading) {
     return (
       <div className="text-center py-16">
@@ -37,7 +37,7 @@ export default function JobFeed({ jobs, loading }) {
         </span>
       </div>
       {jobs.map((job, index) => (
-        <JobCard key={job.id} job={job} index={index} />
+        <JobCard key={job.id} job={job} index={index} onApply={onApply} />
       ))}
     </div>
   )

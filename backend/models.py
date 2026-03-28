@@ -61,6 +61,10 @@ class HuntRequest(BaseModel):
     target_urls: list[str] = []
 
 
+class ApplyRequest(BaseModel):
+    job_id: str
+
+
 class HuntResult(BaseModel):
     hunt_id: str
     role: str

@@ -10,8 +10,11 @@ export default function App() {
     first_name: '',
     last_name: '',
     email: '',
+    phone: '',
+    location: '',
     current_title: '',
     education: '',
+    years_of_experience: '',
     skills: [],
   })
   const [searchConfig, setSearchConfig] = useState({

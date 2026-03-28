@@ -10,11 +10,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
+from apply_orchestrator import orchestrate_application
 from logging_utils import configure_logging, format_fields, get_logger
-from models import HuntRequest, HuntResult, Job, UserProfile
+from models import ApplyRequest, HuntRequest, HuntResult, Job, UserProfile
 from orchestrator import orchestrate_hunt
 from scorer import filter_duplicates, score_jobs
-from state import get_hunt, get_jobs_for_hunt, get_profile, save_hunt, set_profile
+from state import get_hunt, get_job, get_jobs_for_hunt, get_profile, save_hunt, set_profile
 
 
 configure_logging()
@@ -271,14 +272,59 @@ async def get_jobs(hunt_id: str):
 
 
 @app.post("/api/apply")
-async def apply_to_job(job_id: str):
-    """Stubbed auto-apply endpoint."""
-    logger.info("Apply endpoint hit %s", format_fields(job_id=job_id))
-    return {
-        "status": "not_implemented",
-        "message": "Auto-apply coming soon!",
-        "job_id": job_id,
-    }
+async def apply_to_job(request: ApplyRequest):
+    """Start a guided application copilot stream for a job."""
+    application_id = str(uuid.uuid4())[:8]
+    profile = get_profile()
+    job = get_job(request.job_id)
+
+    logger.info(
+        "Application requested %s",
+        format_fields(
+            application_id=application_id,
+            job_id=request.job_id,
+            profile_present=profile is not None,
+            job_found=job is not None,
+        ),
+    )
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not profile:
+        raise HTTPException(status_code=400, detail="Profile must be saved before applying")
+
+    async def event_generator():
+        try:
+            async for event in orchestrate_application(job, profile, application_id):
+                logger.info(
+                    "Streaming application SSE event %s",
+                    format_fields(
+                        application_id=application_id,
+                        job_id=job.id,
+                        event=event["event"],
+                        data=event["data"],
+                    ),
+                )
+                yield {
+                    "event": event["event"],
+                    "data": json.dumps(event["data"]),
+                }
+        except Exception as exc:
+            logger.exception(
+                "Application stream failed %s",
+                format_fields(application_id=application_id, job_id=job.id, error=str(exc)),
+            )
+            yield {
+                "event": "apply_error",
+                "data": json.dumps({
+                    "application_id": application_id,
+                    "job_id": job.id,
+                    "error": str(exc),
+                }),
+            }
+
+    return EventSourceResponse(event_generator())
 
 
 if __name__ == "__main__":

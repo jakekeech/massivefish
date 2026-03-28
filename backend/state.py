@@ -58,3 +58,12 @@ def get_jobs_for_hunt(hunt_id: str) -> list[Job]:
         format_fields(hunt_id=hunt_id, jobs_count=len(jobs)),
     )
     return jobs
+
+
+def get_job(job_id: str) -> Optional[Job]:
+    job = _jobs.get(job_id)
+    logger.info(
+        "Job lookup performed %s",
+        format_fields(job_id=job_id, found=job is not None),
+    )
+    return job

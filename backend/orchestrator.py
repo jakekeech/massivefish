@@ -386,16 +386,26 @@ def _coerce_result_payload(result: Any):
             return result.dict()
         result = str(result)
 
-    json_start = result.find("[")
-    json_end = result.rfind("]") + 1
+    stripped = result.strip()
+    if not stripped:
+        return None
 
-    if json_start >= 0 and json_end > json_start:
-        return json.loads(result[json_start:json_end])
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        pass
 
-    object_start = result.find("{")
-    object_end = result.rfind("}") + 1
-    if object_start >= 0 and object_end > object_start:
-        return json.loads(result[object_start:object_end])
+    decoder = json.JSONDecoder()
+    candidate_starts = [index for index, char in enumerate(result) if char in "{["]
+
+    for start in candidate_starts:
+        try:
+            payload, _ = decoder.raw_decode(result[start:])
+        except json.JSONDecodeError:
+            continue
+
+        if isinstance(payload, (dict, list)):
+            return payload
 
     return None
 
@@ -471,7 +481,7 @@ async def orchestrate_hunt(
         "Orchestration started %s",
         format_fields(hunt_id=hunt_id, role=role, location=location, keywords=keywords, target_urls=target_urls),
     )
-    targets = build_search_targets(role, location, keywords, target_urls=target_urls)
+    targets = build_search_targets(role.lower(), location, keywords, target_urls=target_urls)
     all_jobs: list[Job] = []
     start_time = time.time()
     event_queue: asyncio.Queue = asyncio.Queue()

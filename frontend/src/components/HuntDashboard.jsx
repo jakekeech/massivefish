@@ -1,57 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Activity, Radar, Target } from 'lucide-react'
+import ApplicationCopilot from './ApplicationCopilot'
 import JobFeed from './JobFeed'
 import LivePreview from './LivePreview'
 import StatsRow from './StatsRow'
 import SwarmStatusBar from './SwarmStatusBar'
-
-function parseEventBlock(block) {
-  const lines = block.split('\n')
-  let eventName = 'message'
-  const dataLines = []
-
-  for (const line of lines) {
-    if (!line.trim()) continue
-    if (line.startsWith('event:')) {
-      eventName = line.slice(6).trim()
-      continue
-    }
-    if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5).trim())
-    }
-  }
-
-  if (dataLines.length === 0) {
-    return null
-  }
-
-  const rawData = dataLines.join('\n')
-  return {
-    eventName,
-    data: JSON.parse(rawData),
-  }
-}
-
-function consumeEventBlocks(buffer, onEventBlock) {
-  let workingBuffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  let separatorIndex = workingBuffer.indexOf('\n\n')
-
-  while (separatorIndex !== -1) {
-    const block = workingBuffer.slice(0, separatorIndex)
-    workingBuffer = workingBuffer.slice(separatorIndex + 2)
-
-    if (block.trim()) {
-      const parsed = parseEventBlock(block)
-      if (parsed) {
-        onEventBlock(parsed)
-      }
-    }
-
-    separatorIndex = workingBuffer.indexOf('\n\n')
-  }
-
-  return workingBuffer
-}
+import { consumeEventBlocks, parseEventBlock } from '../lib/sse'
 
 function previewNameFromUrl(url, index) {
   try {
@@ -76,6 +30,7 @@ function previewIdFromUrl(url, index) {
 export default function HuntDashboard({ huntId, searchConfig }) {
   const [statuses, setStatuses] = useState({})
   const [jobs, setJobs] = useState([])
+  const [selectedApplicationJob, setSelectedApplicationJob] = useState(null)
   const [totalScraped, setTotalScraped] = useState(0)
   const [scoring, setScoring] = useState(false)
   const [complete, setComplete] = useState(false)
@@ -441,7 +396,14 @@ export default function HuntDashboard({ huntId, searchConfig }) {
         />
       )}
 
-      <JobFeed jobs={jobs} loading={scoring} />
+      <JobFeed jobs={jobs} loading={scoring} onApply={setSelectedApplicationJob} />
+
+      {selectedApplicationJob && (
+        <ApplicationCopilot
+          job={selectedApplicationJob}
+          onClose={() => setSelectedApplicationJob(null)}
+        />
+      )}
     </div>
   )
 }
